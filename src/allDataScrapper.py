@@ -21,11 +21,27 @@ def getData(company):
     # set params for API, (set size = 1, for start to get the total size of data)
     params = getParams(1, 1, companySymbol)
 
-    # request API to get data
-    response = requests.get(historyUrl, headers=headers, params=params, cookies=cookies)
-
-    # get total number of data available
-    totalRecords = response.json()["recordsTotal"]
+    # request API to get data with robust POST handling and proper Referer
+    request_headers = dict(headers)
+    # set Referer to the specific company page
+    request_headers['Referer'] = f"https://www.sharesansar.com/company/{company.lower()}"
+    # include XSRF token if present
+    xsrf_token = cookies.get('XSRF-TOKEN')
+    if xsrf_token:
+        request_headers['X-XSRF-TOKEN'] = xsrf_token
+    # try JSON payload POST first
+    response = requests.post(historyUrl, headers=request_headers, json=params, cookies=cookies)
+    if not response.ok:
+        # fallback to form-encoded POST
+        response = requests.post(historyUrl, headers=request_headers, data=params, cookies=cookies)
+    if not response.ok:
+        raise RuntimeError(f"Failed to fetch data for {company}: {response.status_code}")
+    json_data = response.json()
+    # get total number of data available, fallback to length of data list if key missing
+    totalRecords = json_data.get('recordsTotal')
+    if totalRecords is None:
+        totalRecords = len(json_data.get('data', []))
+    # set the start to 1 and total size of data to 50
 
     # set the start to 1 and total size of data to 50
     start = 1
@@ -40,7 +56,7 @@ def getData(company):
     # loop
     for i in range(1, totalLoop):
         dataParams = getParams(start, size, companySymbol)
-        response = requests.get(historyUrl, headers=headers, params=dataParams, cookies=cookies)
+        response = requests.get(historyUrl, headers=request_headers, params=dataParams, cookies=cookies)
         data.append(response.json()["data"])
         start = start + 50
 
@@ -65,4 +81,8 @@ def getData(company):
 
 
 for company in companyIdMap:
-    getData(company)
+    try:
+        getData(company)
+    except Exception as e:
+        print(f"Error fetching data for {company}: {e}")
+        continue

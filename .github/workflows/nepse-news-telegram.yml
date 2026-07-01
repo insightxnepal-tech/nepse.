@@ -1,0 +1,33 @@
+name: nepse-news-telegram
+
+on:
+  schedule:
+    # 07:00 AM Nepal Time (NPT = UTC+5:45) → 01:15 UTC
+    - cron: "15 1 * * *"
+  workflow_dispatch:  # Allow manual trigger from GitHub UI
+
+defaults:
+  run:
+    working-directory: ./src
+
+jobs:
+  send-news:
+    name: Scrape & Send NEPSE News
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run NEPSE News Bot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          COMPANY_LIST_PATH: ../data/test_companies.txt
+          NEWS_URLS: "https://www.sharesansar.com/category/latest,https://merolagani.com/NewsList.aspx,https://nepsetrading.com/news"
+        run: python news_telegram_bot.py
