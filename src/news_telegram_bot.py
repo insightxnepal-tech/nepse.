@@ -34,13 +34,18 @@ NPT = timezone(timedelta(hours=5, minutes=45))
 # ─── Configuration ──────────────────────────────────────────────────────────────
 
 def load_config() -> dict:
-    """Load environment variables from .env and validate required keys."""
+    """Load environment variables from .env (if present) and validate required keys."""
     env_path = Path(__file__).parent / ".env"
-    load_dotenv(dotenv_path=env_path)
+    if env_path.exists():
+        load_dotenv(dotenv_path=env_path)
+    else:
+        print("[INFO] No .env file found — using system environment variables")
     required = ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "COMPANY_LIST_PATH"]
     missing = [key for key in required if not os.getenv(key)]
     if missing:
-        sys.exit(f"Missing required env variables: {', '.join(missing)}")
+        print(f"[ERROR] Missing required env variables: {', '.join(missing)}")
+        print("[HINT] Set them in .env or as GitHub Actions secrets")
+        sys.exit(1)
     return {
         "token": os.getenv("TELEGRAM_BOT_TOKEN"),
         "chat_id": os.getenv("TELEGRAM_CHAT_ID"),
